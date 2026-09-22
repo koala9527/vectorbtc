@@ -98,7 +98,12 @@ async def test_model(model_id: int, db: AsyncSession = Depends(get_db)):
     
     res = await ai_predictor_service.predict(model, market_data, indicators)
     reasoning = res.get("reasoning", "")
-    if res.get("prediction") == "SKIP" and any(err in reasoning.lower() for err in ["error", "timed out", "failed", "exception"]):
+    pred = res.get("prediction", "SKIP")
+    is_failed = pred == "SKIP" and (
+        res.get("confidence", 0.0) == 0.0 or 
+        any(k in reasoning.lower() for k in ["http", "error", "timed out", "failed", "exception", "错误", "失败", "超时"])
+    )
+    if is_failed:
         raise HTTPException(status_code=400, detail=reasoning)
     return {
         "success": True,

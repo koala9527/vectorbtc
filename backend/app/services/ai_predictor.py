@@ -119,8 +119,24 @@ class AIPredictorService:
             logger.warning(f"AI model {ai_model.name} timed out")
             return {"prediction": "SKIP", "confidence": 0.0, "reasoning": "AI模型请求超时，网络或API无响应"}
         except httpx.HTTPStatusError as e:
-            logger.error(f"AI model {ai_model.name} HTTP error: {e.response.status_code}")
-            return {"prediction": "SKIP", "confidence": 0.0, "reasoning": f"AI模型接口返回错误码 HTTP {e.response.status_code}"}
+            err_detail = ""
+            try:
+                err_json = e.response.json()
+                if isinstance(err_json, dict):
+                    if "error" in err_json:
+                        err_obj = err_json["error"]
+                        if isinstance(err_obj, dict) and "message" in err_obj:
+                            err_detail = f": {err_obj['message']}"
+                        elif isinstance(err_obj, str):
+                            err_detail = f": {err_obj}"
+                    elif "message" in err_json:
+                        err_detail = f": {err_json['message']}"
+            except Exception:
+                if e.response.text:
+                    err_detail = f": {e.response.text[:120]}"
+            msg = f"AI模型接口返回错误码 HTTP {e.response.status_code}{err_detail}"
+            logger.error(f"AI model {ai_model.name} HTTP error: {msg}")
+            return {"prediction": "SKIP", "confidence": 0.0, "reasoning": msg}
         except Exception as e:
             logger.error(f"AI model {ai_model.name} error: {e}")
             return {"prediction": "SKIP", "confidence": 0.0, "reasoning": f"调用AI接口失败: {str(e)}"}
