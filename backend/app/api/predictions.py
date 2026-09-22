@@ -24,14 +24,22 @@ async def _attach_model_names(predictions: List[Prediction], db: AsyncSession) -
         out.append(PredictionSchema(**d))
     return out
 
-@router.get("/", response_model=List[PredictionSchema])
+@router.get("", response_model=List[PredictionSchema])
+@router.get("/", response_model=List[PredictionSchema], include_in_schema=False)
 async def get_predictions(
     ai_model_id: Optional[int] = None,
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Prediction).order_by(desc(Prediction.predicted_at)).limit(limit).offset(offset)
+    stmt = (
+        select(Prediction)
+        .join(AIModel, Prediction.ai_model_id == AIModel.id)
+        .where(AIModel.is_deleted == False)
+        .order_by(desc(Prediction.predicted_at))
+        .limit(limit)
+        .offset(offset)
+    )
     if ai_model_id:
         stmt = stmt.where(Prediction.ai_model_id == ai_model_id)
     
@@ -41,13 +49,19 @@ async def get_predictions(
 
 @router.get("/latest", response_model=List[PredictionSchema])
 async def get_latest(limit: int = 10, db: AsyncSession = Depends(get_db)):
-    stmt = select(Prediction).order_by(desc(Prediction.predicted_at)).limit(limit)
+    stmt = (
+        select(Prediction)
+        .join(AIModel, Prediction.ai_model_id == AIModel.id)
+        .where(AIModel.is_deleted == False)
+        .order_by(desc(Prediction.predicted_at))
+        .limit(limit)
+    )
     result = await db.execute(stmt)
     preds = result.scalars().all()
     return await _attach_model_names(preds, db)
 
 @router.post("/trigger")
 async def trigger_cycle(background_tasks: BackgroundTasks):
-    """Manually triggers a prediction and settlement cycle immediately."""
+    """Manually triggers a 5-minute prediction and settlement cycle immediately."""
     background_tasks.add_task(scheduler_service.job_func)
-    return {"status": "success", "message": "Prediction and settlement cycle triggered"}
+    return {"status": "success", "message": "5-Minute prediction & settlement cycle triggered"}

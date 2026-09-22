@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps<{
   prediction: any;
 }>();
-
-const activeNames = ref<string[]>([]);
 
 const predDirection = computed(() => {
   return (props.prediction.prediction || props.prediction.direction || 'SKIP').toUpperCase();
@@ -17,32 +15,26 @@ const directionLabel = computed(() => {
   return '观望 (SKIP)';
 });
 
-const directionIcon = computed(() => {
-  if (predDirection.value === 'UP') return 'arrow-up';
-  if (predDirection.value === 'DOWN') return 'arrow-down';
-  return 'minus';
-});
-
 const directionColor = computed(() => {
-  if (predDirection.value === 'UP') return '#00c853';
-  if (predDirection.value === 'DOWN') return '#ff1744';
-  return '#8f9ca2';
+  if (predDirection.value === 'UP') return '#00f090';
+  if (predDirection.value === 'DOWN') return '#ff3355';
+  return '#f0b90b';
 });
 
 const resultStatus = computed(() => {
   if (!props.prediction.settled) {
-    return { text: '待结算', type: 'primary' as const, color: '#1989fa' };
+    return { text: '5M 推演中 · 待结算', type: 'primary' as const, bg: 'rgba(25, 137, 250, 0.15)', color: '#389e0d' };
   }
   if (predDirection.value === 'SKIP') {
-    return { text: '跳过', type: 'warning' as const, color: '#ff976a' };
+    return { text: '已跳过 (SKIP)', type: 'warning' as const, bg: 'rgba(240, 185, 11, 0.15)', color: '#f0b90b' };
   }
   if (props.prediction.is_correct === true) {
-    return { text: '✓ 准确', type: 'success' as const, color: '#00c853' };
+    return { text: '✓ 预测准确', type: 'success' as const, bg: 'rgba(0, 240, 144, 0.15)', color: '#00f090' };
   }
   if (props.prediction.is_correct === false) {
-    return { text: '✗ 错误', type: 'danger' as const, color: '#ff1744' };
+    return { text: '✗ 预测偏差', type: 'danger' as const, bg: 'rgba(255, 51, 85, 0.15)', color: '#ff3355' };
   }
-  return { text: '待定', type: 'default' as const, color: '#8f9ca2' };
+  return { text: '待定', type: 'default' as const, bg: '#1e2a3a', color: '#8f9ca2' };
 });
 
 const confidencePct = computed(() => {
@@ -52,130 +44,218 @@ const confidencePct = computed(() => {
 </script>
 
 <template>
-  <div class="prediction-card">
+  <div class="prediction-card" :class="predDirection.toLowerCase()">
+    <!-- Card Header -->
     <div class="card-header">
-      <div class="model-name">
-        <van-icon name="gem-o" size="14" color="#00c853" />
-        <span>{{ prediction.model_name || prediction.ai_model?.name || 'AI Model' }}</span>
+      <div class="model-info">
+        <span class="m5-tag">5M</span>
+        <span class="model-name">{{ prediction.model_name || prediction.ai_model?.name || 'AI Model' }}</span>
       </div>
-      <van-tag :type="resultStatus.type" size="medium" plain>
+      <span class="status-tag" :style="{ background: resultStatus.bg, color: resultStatus.color }">
         {{ resultStatus.text }}
-      </van-tag>
+      </span>
     </div>
 
+    <!-- Direction & Price Row -->
     <div class="card-body">
       <div class="direction-row">
-        <div class="direction" :style="{ color: directionColor }">
-          <van-icon :name="directionIcon" />
-          <span>{{ directionLabel }}</span>
+        <div class="dir-badge" :style="{ color: directionColor, borderColor: directionColor }">
+          <span class="dir-arrow">{{ predDirection === 'UP' ? '▲' : predDirection === 'DOWN' ? '▼' : '—' }}</span>
+          <span class="dir-text">{{ directionLabel }}</span>
         </div>
-        <div class="prices" v-if="prediction.entry_price">
-          入场: ${{ prediction.entry_price?.toFixed(2) }}
-          <span v-if="prediction.exit_price"> → 出场: ${{ prediction.exit_price?.toFixed(2) }}</span>
+        <div class="price-box" v-if="prediction.entry_price">
+          <div class="p-item">
+            <span class="p-label">开盘入场</span>
+            <span class="p-val font-mono">${{ prediction.entry_price?.toFixed(2) }}</span>
+          </div>
+          <div class="p-item" v-if="prediction.exit_price">
+            <span class="p-label">收盘结算</span>
+            <span class="p-val font-mono highlight">${{ prediction.exit_price?.toFixed(2) }}</span>
+          </div>
         </div>
       </div>
 
+      <!-- Confidence Bar -->
       <div class="confidence-bar">
         <div class="conf-text">
-          <span>置信度</span>
-          <span class="conf-val">{{ confidencePct }}%</span>
+          <span class="conf-title">量化模型置信度</span>
+          <span class="conf-num" :style="{ color: directionColor }">{{ confidencePct }}%</span>
         </div>
-        <van-progress
-          :percentage="confidencePct"
-          stroke-width="5"
-          :color="directionColor"
-          track-color="#0f0f1a"
-          :show-pivot="false"
-        />
+        <div class="progress-track">
+          <div
+            class="progress-fill"
+            :style="{ width: confidencePct + '%', backgroundColor: directionColor, boxShadow: '0 0 8px ' + directionColor }"
+          ></div>
+        </div>
       </div>
-    </div>
 
-    <div class="card-footer" v-if="prediction.reasoning">
-      <van-collapse v-model="activeNames" :border="false">
-        <van-collapse-item title="AI 决策理由" name="1">
-          <div class="reasoning-text">{{ prediction.reasoning }}</div>
-        </van-collapse-item>
-      </van-collapse>
+      <!-- Direct Visible Reasoning (Convincing & Engaging!) -->
+      <div class="reasoning-box" v-if="prediction.reasoning">
+        <div class="reasoning-header">
+          <van-icon name="chart-trending-o" size="12" color="#00f090" />
+          <span>5M 量化决策推演逻辑:</span>
+        </div>
+        <div class="reasoning-body">{{ prediction.reasoning }}</div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .prediction-card {
-  background: #1a1a2e;
-  border-radius: 10px;
-  margin: 10px;
+  background: linear-gradient(145deg, #13172b 0%, #0d0f1e 100%);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
-  border: 1px solid #2a2a3e;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: all 0.2s ease;
+}
+.prediction-card.up {
+  border-left: 3px solid #00f090;
+}
+.prediction-card.down {
+  border-left: 3px solid #ff3355;
+}
+.prediction-card.skip {
+  border-left: 3px solid #f0b90b;
 }
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px;
-  background: #1e2a3a;
-  border-bottom: 1px solid #2a2a3e;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
-.model-name {
+.model-info {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 15px;
+}
+.m5-tag {
+  font-size: 10px;
+  font-weight: 800;
+  color: #00f090;
+  background: rgba(0, 240, 144, 0.15);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+.model-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f0f2f5;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status-tag {
+  font-size: 11px;
   font-weight: 600;
-  color: #e0e0e0;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 .card-body {
-  padding: 12px 14px;
+  padding: 14px;
 }
 .direction-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
-.direction {
-  font-size: 16px;
-  font-weight: bold;
+.dir-badge {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  font-size: 17px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid;
 }
-.prices {
+.dir-arrow {
+  font-size: 14px;
+}
+.price-box {
+  display: flex;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+.p-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.p-label {
+  font-size: 9px;
+  color: #7d889b;
+}
+.p-val {
   font-size: 12px;
-  color: #8f9ca2;
-  font-family: monospace;
+  color: #d8e0ec;
+  font-weight: 600;
+}
+.p-val.highlight {
+  color: #00f090;
+}
+.font-mono {
+  font-family: 'Courier New', Courier, monospace;
 }
 .confidence-bar {
-  margin-top: 6px;
+  margin-bottom: 12px;
 }
 .conf-text {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: #8f9ca2;
+  margin-bottom: 5px;
+}
+.conf-title {
+  color: #7d889b;
+}
+.conf-num {
+  font-weight: 700;
+  font-family: monospace;
+}
+.progress-track {
+  width: 100%;
+  height: 6px;
+  background: #080a14;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.reasoning-box {
+  background: rgba(18, 20, 36, 0.7);
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.reasoning-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #00f090;
+  font-weight: 600;
   margin-bottom: 4px;
 }
-.conf-val {
-  font-weight: 600;
-  color: #e0e0e0;
-}
-.card-footer {
-  border-top: 1px solid #2a2a3e;
-}
-.reasoning-text {
+.reasoning-body {
   font-size: 12px;
-  color: #c0c0c0;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-:deep(.van-collapse-item__title) {
-  background: transparent;
-  padding: 8px 14px;
-  font-size: 12px;
-  color: #8f9ca2;
-}
-:deep(.van-collapse-item__content) {
-  background: #151524;
-  padding: 10px 14px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  word-break: break-word;
 }
 </style>

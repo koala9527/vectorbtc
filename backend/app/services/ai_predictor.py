@@ -1,11 +1,12 @@
-import httpx
 import json
-import logging
+import re
+import httpx
 from app.models.ai_model import AIModel
-from cryptography.fernet import Fernet
 from app.config import settings
-import base64
+from cryptography.fernet import Fernet
 import hashlib
+import base64
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -21,22 +22,26 @@ def decrypt_api_key(encrypted_key: str) -> str:
     f = get_cipher()
     return f.decrypt(encrypted_key.encode()).decode()
 
-DEFAULT_SYSTEM_PROMPT = """You are an expert cryptocurrency quantitative analyst specializing in BTC/USDT short-term price prediction. 
-Your task is to analyze 5-minute interval market data and predict whether the price will go UP or DOWN in the next 5-minute candle.
+DEFAULT_SYSTEM_PROMPT = """你是一位顶尖的加密货币量化高频交易专家，专精于BTC/USDT 5分钟级（M5）K线的超短线多空走势研判。
+你的核心任务是深入剖析提供的5分钟级实时行情、近期K线形态与量化指标（MACD/RSI/布林带/EMA/SMA），给出极具量化说服力、逻辑严密的下一个5分钟K线涨跌（UP/DOWN）预测；若多空信号严重冲突则果断观望（SKIP）。
 
-Analysis methodology:
-1. Trend Analysis: EMA crossovers (EMA7 vs EMA25), price position relative to SMA99
-2. Momentum: RSI oversold/overbought levels, MACD histogram direction and crossovers
-3. Volatility: Bollinger Band width and price position within bands
-4. Volume: Compare current volume to recent average, volume trend
-5. Price Action: Recent candle patterns, support/resistance levels
+【深度量化分析要求】：
+1. 动能结构：重点研判 RSI(14) 强弱位置（超买/超卖/中轴50分水岭）及 MACD 柱能扩张或收敛，DIF与DEA是否形成动能背离或交叉。
+2. 均线势能：EMA(7)与EMA(25)快慢线多空发散态势，当前价相对长线基准 SMA(99) 的压制或支撑力度。
+3. 通道与价格行为：布林带(20,2)收口蓄势还是张口扩张，K线影线形态（Pinbar、多空吞没、放量实体突破）。
 
-You MUST respond with ONLY a valid JSON object in this exact format:
-{"prediction": "UP" or "DOWN" or "SKIP", "confidence": 0.0 to 1.0, "reasoning": "brief explanation"}
+【输出格式严苛规定】：
+必须且仅输出合法的纯 JSON 格式对象，严禁包含任何 Markdown 标记（如```json）或外部注释：
+{
+  "prediction": "UP" 或 "DOWN" 或 "SKIP",
+  "confidence": 0.50 到 0.95 之间的浮点数,
+  "reasoning": "中文决策理由，字数在70-160字之间。必须以专业量化交易员口吻，直接引用指标数值（如RSI处于xx、EMA7穿过EMA25、回踩布林中轨xx），层层推导，逻辑连贯且有极强说服力。"
+}
 
-Use "SKIP" only when signals are highly contradictory and there is no clear edge.
-Keep reasoning concise (under 200 characters)."""
-
+【决策原则】：
+- 看涨 (UP)：必须指出多头动量引爆点、均线或布林通道的支撑有效性。
+- 看跌 (DOWN)：必须指出顶背离、均线死叉压制或破位风险。
+- 观望 (SKIP)：仅在多空指标严重矛盾且无确定性盈亏比时使用，并说明风险点。"""
 
 class AIPredictorService:
     async def predict(self, ai_model: AIModel, market_data: dict, indicators: dict) -> dict:
@@ -45,40 +50,33 @@ class AIPredictorService:
             
             # Build rich market context
             prompt_parts = [
-                f"=== {market_data.get('symbol', 'BTCUSDT')} 5-Minute Analysis ===",
-                f"Current Price: {market_data.get('price', 'N/A')}",
-                f"24h Change: {market_data.get('price_change_pct', 'N/A')}%",
-                f"24h Volume: {market_data.get('volume_24h', 'N/A')} USDT",
-                f"24h High: {market_data.get('high_24h', 'N/A')}",
-                f"24h Low: {market_data.get('low_24h', 'N/A')}",
+                f"【BTC/USDT 5分钟(M5)周期量化决策输入】",
+                f"当前最新现价: ${market_data.get('price', 'N/A')}",
+                f"24小时涨跌幅: {market_data.get('price_change_pct', 'N/A')}%",
+                f"24小时成交量: {market_data.get('volume_24h', 'N/A')} USDT",
+                f"24小时高/低点: ${market_data.get('high_24h', 'N/A')} / ${market_data.get('low_24h', 'N/A')}",
                 "",
-                "--- Recent 5 Candles (oldest to newest) ---",
+                "【最近连续5根5分钟K线流水（由旧到新）】",
             ]
             
-            # Add recent klines if available
             recent_klines = market_data.get("recent_klines", [])
             for i, k in enumerate(recent_klines[-5:]):
-                direction = "▲" if k.get("close_price", 0) >= k.get("open_price", 0) else "▼"
+                direction = "▲红阳" if k.get("close_price", 0) >= k.get("open_price", 0) else "▼绿阴"
                 prompt_parts.append(
-                    f"  {direction} O:{k.get('open_price',0):.2f} H:{k.get('high_price',0):.2f} "
-                    f"L:{k.get('low_price',0):.2f} C:{k.get('close_price',0):.2f} V:{k.get('volume',0):.1f}"
+                    f"  M5[{i+1}] {direction} 开:{k.get('open_price',0):.2f} 高:{k.get('high_price',0):.2f} "
+                    f"低:{k.get('low_price',0):.2f} 收:{k.get('close_price',0):.2f} 量:{k.get('volume',0):.1f}"
                 )
             
             prompt_parts.extend([
                 "",
-                "--- Technical Indicators ---",
-                f"MACD: {indicators.get('macd', 'N/A')}",
-                f"MACD Signal: {indicators.get('macd_signal', 'N/A')}",
-                f"MACD Histogram: {indicators.get('macd_hist', 'N/A')}",
+                "【核心技术指标当前读数】",
+                f"MACD (12, 26, 9): DIF={indicators.get('macd', 'N/A')}, DEA={indicators.get('macd_signal', 'N/A')}, HIST={indicators.get('macd_hist', 'N/A')}",
                 f"RSI(14): {indicators.get('rsi_14', 'N/A')}",
-                f"BB Upper: {indicators.get('bb_upper', 'N/A')}",
-                f"BB Middle: {indicators.get('bb_middle', 'N/A')}",
-                f"BB Lower: {indicators.get('bb_lower', 'N/A')}",
-                f"EMA(7): {indicators.get('ema_7', 'N/A')}",
-                f"EMA(25): {indicators.get('ema_25', 'N/A')}",
-                f"SMA(99): {indicators.get('sma_99', 'N/A')}",
+                f"布林带 (20, 2): 上轨={indicators.get('bb_upper', 'N/A')}, 中轨={indicators.get('bb_middle', 'N/A')}, 下轨={indicators.get('bb_lower', 'N/A')}",
+                f"指数均线: EMA(7)={indicators.get('ema_7', 'N/A')}, EMA(25)={indicators.get('ema_25', 'N/A')}",
+                f"基准均线: SMA(99)={indicators.get('sma_99', 'N/A')}",
                 "",
-                "Based on the above data, predict the next 5-minute candle direction. Respond with JSON only."
+                "请基于上述5分钟指标与K线量价，推演未来5分钟K线收盘涨跌。严格按JSON输出。"
             ])
             
             prompt = "\n".join(prompt_parts)
@@ -96,7 +94,7 @@ class AIPredictorService:
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": ai_model.temperature,
-                "max_tokens": 300,
+                "max_tokens": 500,
             }
             
             base_url = ai_model.base_url.strip().rstrip("/")
@@ -119,50 +117,66 @@ class AIPredictorService:
                 
         except httpx.TimeoutException:
             logger.warning(f"AI model {ai_model.name} timed out")
-            return {"prediction": "SKIP", "confidence": 0.0, "reasoning": "AI API request timed out"}
+            return {"prediction": "SKIP", "confidence": 0.0, "reasoning": "AI模型请求超时，网络或API无响应"}
         except httpx.HTTPStatusError as e:
             logger.error(f"AI model {ai_model.name} HTTP error: {e.response.status_code}")
-            return {"prediction": "SKIP", "confidence": 0.0, "reasoning": f"AI API HTTP error: {e.response.status_code}"}
+            return {"prediction": "SKIP", "confidence": 0.0, "reasoning": f"AI模型接口返回错误码 HTTP {e.response.status_code}"}
         except Exception as e:
             logger.error(f"AI model {ai_model.name} error: {e}")
-            return {"prediction": "SKIP", "confidence": 0.0, "reasoning": f"Error calling AI API: {str(e)}"}
+            return {"prediction": "SKIP", "confidence": 0.0, "reasoning": f"调用AI接口失败: {str(e)}"}
     
     def _parse_response(self, content: str) -> dict:
-        """Extract and parse JSON from AI response, handling markdown wrappers."""
-        try:
-            # Try direct JSON parse first
-            parsed = json.loads(content.strip())
-        except json.JSONDecodeError:
-            # Try extracting from markdown code blocks
-            try:
-                if "```json" in content:
-                    content = content.split("```json")[1].split("```")[0].strip()
-                elif "```" in content:
-                    content = content.split("```")[1].split("```")[0].strip()
-                parsed = json.loads(content)
-            except (json.JSONDecodeError, IndexError):
-                # Last resort: try to find JSON object with regex-like approach
-                try:
-                    start = content.index('{')
-                    end = content.rindex('}') + 1
-                    parsed = json.loads(content[start:end])
-                except (ValueError, json.JSONDecodeError):
-                    return {"prediction": "SKIP", "confidence": 0.0, "reasoning": f"Failed to parse AI response"}
+        content = content.strip()
         
-        pred = str(parsed.get("prediction", "SKIP")).upper().strip()
+        # Strategy 1: Direct JSON parse
+        try:
+            data = json.loads(content)
+            return self._validate_data(data)
+        except json.JSONDecodeError:
+            pass
+            
+        # Strategy 2: Extract from markdown code blocks ```json ... ```
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(1))
+                return self._validate_data(data)
+            except json.JSONDecodeError:
+                pass
+                
+        # Strategy 3: Find any {...} substring containing "prediction"
+        match = re.search(r"\{[^{}]*\"prediction\"[^{}]*\}", content, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(0))
+                return self._validate_data(data)
+            except json.JSONDecodeError:
+                pass
+                
+        logger.warning(f"Failed to parse JSON from AI response: {content[:200]}")
+        return {
+            "prediction": "SKIP",
+            "confidence": 0.0,
+            "reasoning": f"模型返回格式解析失败: {content[:100]}"
+        }
+
+    def _validate_data(self, data: dict) -> dict:
+        pred = str(data.get("prediction", "SKIP")).upper().strip()
         if pred not in ["UP", "DOWN", "SKIP"]:
             pred = "SKIP"
-        
-        confidence = parsed.get("confidence", 0.0)
+            
         try:
-            confidence = max(0.0, min(1.0, float(confidence)))
+            conf = float(data.get("confidence", 0.5))
+            conf = max(0.0, min(1.0, conf))
         except (ValueError, TypeError):
-            confidence = 0.0
+            conf = 0.5
+            
+        reasoning = str(data.get("reasoning", "")).strip()
         
         return {
             "prediction": pred,
-            "confidence": confidence,
-            "reasoning": str(parsed.get("reasoning", ""))[:500]
+            "confidence": conf,
+            "reasoning": reasoning
         }
 
 ai_predictor_service = AIPredictorService()

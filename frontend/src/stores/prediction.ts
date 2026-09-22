@@ -15,19 +15,17 @@ export const usePredictionStore = defineStore('prediction', () => {
       const res: any = await predictionsApi.getLatest();
       latestPredictions.value = Array.isArray(res) ? res : [];
     } catch (e) {
-      console.error(e);
+      console.error('fetchLatest error:', e);
     }
   };
 
-  const fetchHistory = async (modelId?: number, isRefresh = false) => {
-    if (loading.value) return;
-    loading.value = true;
-    
+  const fetchHistory = async (modelId?: number, isRefresh = false): Promise<boolean> => {
     if (isRefresh) {
       offset.value = 0;
       finished.value = false;
     }
     
+    loading.value = true;
     try {
       const params: any = { limit: pageSize, offset: offset.value };
       if (modelId) params.ai_model_id = modelId;
@@ -45,8 +43,11 @@ export const usePredictionStore = defineStore('prediction', () => {
         finished.value = true;
       }
       offset.value += items.length;
+      return finished.value;
     } catch (e) {
-      console.error(e);
+      console.error('fetchHistory error:', e);
+      finished.value = true;
+      return true;
     } finally {
       loading.value = false;
     }

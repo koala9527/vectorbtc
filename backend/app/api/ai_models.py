@@ -14,12 +14,12 @@ def mask_api_key(key: str) -> str:
         return "****"
     return "*" * (len(key) - 4) + key[-4:]
 
-@router.get("/", response_model=List[AIModelSchema])
+@router.get("", response_model=List[AIModelSchema])
+@router.get("/", response_model=List[AIModelSchema], include_in_schema=False)
 async def get_models(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(AIModel))
+    result = await db.execute(select(AIModel).where(AIModel.is_deleted == False))
     models = result.scalars().all()
     
-    # We map ORM to schema manually to mask the api key
     out = []
     for m in models:
         raw_key = decrypt_api_key(m.api_key_encrypted)
@@ -28,19 +28,21 @@ async def get_models(db: AsyncSession = Depends(get_db)):
         out.append(AIModelSchema(**d))
     return out
 
-@router.post("/", response_model=AIModelSchema)
+@router.post("", response_model=AIModelSchema)
+@router.post("/", response_model=AIModelSchema, include_in_schema=False)
 async def create_model(item: AIModelCreate, db: AsyncSession = Depends(get_db)):
     cipher = get_cipher()
     enc_key = cipher.encrypt(item.api_key.encode()).decode()
     
     model = AIModel(
         name=item.name,
-        provider=item.provider,
+        provider=item.provider or "Custom",
         base_url=item.base_url,
         api_key_encrypted=enc_key,
         model_name=item.model_name,
         temperature=item.temperature,
         is_active=item.is_active,
+        is_deleted=False,
         system_prompt=item.system_prompt
     )
     db.add(model)
@@ -54,7 +56,7 @@ async def create_model(item: AIModelCreate, db: AsyncSession = Depends(get_db)):
 @router.put("/{model_id}", response_model=AIModelSchema)
 async def update_model(model_id: int, item: AIModelUpdate, db: AsyncSession = Depends(get_db)):
     model = await db.get(AIModel, model_id)
-    if not model:
+    if not model or model.is_deleted:
         raise HTTPException(status_code=404, detail="Model not found")
         
     update_data = item.model_dump(exclude_unset=True)
@@ -76,16 +78,19 @@ async def update_model(model_id: int, item: AIModelUpdate, db: AsyncSession = De
 @router.delete("/{model_id}")
 async def delete_model(model_id: int, db: AsyncSession = Depends(get_db)):
     model = await db.get(AIModel, model_id)
-    if not model:
+    if not model or model.is_deleted:
         raise HTTPException(status_code=404, detail="Model not found")
-    await db.delete(model)
+    
+    # Soft delete to shield all related predictions and statistics
+    model.is_deleted = True
+    model.is_active = False
     await db.commit()
-    return {"status": "deleted"}
+    return {"status": "deleted", "message": "Model and its associated records shielded"}
 
 @router.post("/{model_id}/test")
 async def test_model(model_id: int, db: AsyncSession = Depends(get_db)):
     model = await db.get(AIModel, model_id)
-    if not model:
+    if not model or model.is_deleted:
         raise HTTPException(status_code=404, detail="Model not found")
         
     market_data = {"symbol": "BTCUSDT", "price": 85000.0, "volume": 100.0}
@@ -95,4 +100,10 @@ async def test_model(model_id: int, db: AsyncSession = Depends(get_db)):
     reasoning = res.get("reasoning", "")
     if res.get("prediction") == "SKIP" and any(err in reasoning.lower() for err in ["error", "timed out", "failed", "exception"]):
         raise HTTPException(status_code=400, detail=reasoning)
-    return res
+    return {
+        "success": True,
+        "model_name": model.name,
+        "prediction": res.get("prediction"),
+        "confidence": res.get("confidence"),
+        "reasoning": res.get("reasoning")
+    }

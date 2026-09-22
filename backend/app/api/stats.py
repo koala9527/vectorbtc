@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, cast, Date
+from sqlalchemy import select
 from app.database import get_db
 from app.models.ai_model import AIModel
 from app.models.prediction import Prediction
@@ -10,14 +10,14 @@ router = APIRouter(prefix="/stats", tags=["Statistics"])
 
 @router.get("/overview")
 async def get_overview(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(AIModel))
+    result = await db.execute(select(AIModel).where(AIModel.is_deleted == False))
     models = result.scalars().all()
     
     total = sum(m.total_predictions for m in models)
     correct = sum(m.correct_predictions for m in models)
     skips = sum(m.skip_predictions for m in models)
     wrong = total - correct
-    effective = total  # total already excludes skips in our settlement logic
+    effective = total
     
     win_rate = (correct / effective * 100) if effective > 0 else 0.0
     
@@ -31,7 +31,7 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
 
 @router.get("/by-model")
 async def get_by_model(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(AIModel))
+    result = await db.execute(select(AIModel).where(AIModel.is_deleted == False))
     models = result.scalars().all()
     stats = []
     for m in models:
@@ -47,17 +47,18 @@ async def get_by_model(db: AsyncSession = Depends(get_db)):
             "skip_predictions": m.skip_predictions,
             "win_rate": round(win_rate, 2),
         })
-    # Sort by win_rate descending
     stats.sort(key=lambda x: x["win_rate"], reverse=True)
     return stats
 
 @router.get("/history")
 async def get_history(days: int = Query(default=7, ge=1, le=90), db: AsyncSession = Depends(get_db)):
-    """Get daily win rate trend for the last N days."""
+    """Get daily win rate trend for the last N days for non-deleted models."""
     since = datetime.utcnow() - timedelta(days=days)
     
     stmt = (
         select(Prediction)
+        .join(AIModel, Prediction.ai_model_id == AIModel.id)
+        .where(AIModel.is_deleted == False)
         .where(Prediction.settled == True)
         .where(Prediction.prediction != "SKIP")
         .where(Prediction.settled_at >= since)
@@ -66,7 +67,6 @@ async def get_history(days: int = Query(default=7, ge=1, le=90), db: AsyncSessio
     result = await db.execute(stmt)
     predictions = result.scalars().all()
     
-    # Group by date
     daily_stats = {}
     for p in predictions:
         if p.settled_at is None:
@@ -78,7 +78,6 @@ async def get_history(days: int = Query(default=7, ge=1, le=90), db: AsyncSessio
         if p.is_correct:
             daily_stats[date_key]["correct"] += 1
     
-    # Build output sorted by date
     history = []
     for date_key in sorted(daily_stats.keys()):
         s = daily_stats[date_key]

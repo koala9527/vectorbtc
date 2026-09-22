@@ -14,6 +14,7 @@ class AIModel(Base):
     model_name: Mapped[str] = mapped_column(String)
     temperature: Mapped[float] = mapped_column(Float, default=0.3)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     system_prompt: Mapped[str | None] = mapped_column(String, nullable=True)
     
     total_predictions: Mapped[int] = mapped_column(Integer, default=0)

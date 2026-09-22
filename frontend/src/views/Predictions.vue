@@ -7,21 +7,33 @@ import dayjs from 'dayjs';
 const predictionStore = usePredictionStore();
 const settingsStore = useSettingsStore();
 
+const listLoading = ref(false);
+const listFinished = ref(false);
 const refreshing = ref(false);
 const selectedModel = ref(0);
 const modelOptions = ref([{ text: '全部模型', value: 0 }]);
 
 const loadData = async (isRefresh = false) => {
-  await predictionStore.fetchHistory(selectedModel.value || undefined, isRefresh);
+  if (isRefresh) {
+    listFinished.value = false;
+  }
+  listLoading.value = true;
+  try {
+    const done = await predictionStore.fetchHistory(selectedModel.value || undefined, isRefresh);
+    listFinished.value = !!done;
+  } finally {
+    listLoading.value = false;
+    refreshing.value = false;
+  }
 };
 
-const onRefresh = async () => {
-  refreshing.value = true;
-  await loadData(true);
-  refreshing.value = false;
+const onRefresh = () => {
+  loadData(true);
 };
 
-const onLoad = () => loadData(false);
+const onLoad = () => {
+  loadData(false);
+};
 
 const onModelChange = () => {
   loadData(true);
@@ -58,14 +70,16 @@ const getResultTag = (item: any) => {
 
 <template>
   <div class="predictions-page">
-    <van-dropdown-menu>
-      <van-dropdown-item v-model="selectedModel" :options="modelOptions" @change="onModelChange" />
-    </van-dropdown-menu>
+    <div class="filter-bar">
+      <van-dropdown-menu>
+        <van-dropdown-item v-model="selectedModel" :options="modelOptions" @change="onModelChange" />
+      </van-dropdown-menu>
+    </div>
 
     <van-pull-refresh v-model="refreshing" @refresh="onRefresh">
       <van-list
-        v-model:loading="predictionStore.loading"
-        :finished="predictionStore.finished"
+        v-model:loading="listLoading"
+        :finished="listFinished"
         finished-text="没有更多了"
         @load="onLoad"
       >
@@ -73,6 +87,7 @@ const getResultTag = (item: any) => {
           <template #title>
             <div class="pred-row">
               <span class="time">{{ formatTime(item.predicted_at) }}</span>
+              <span class="model-badge">{{ item.model_name || 'AI Model' }}</span>
               <span class="prediction" :style="{ color: directionColor(item.prediction) }">
                 {{ directionIcon(item.prediction) }} {{ item.prediction }}
               </span>
@@ -83,16 +98,23 @@ const getResultTag = (item: any) => {
           </template>
           <template #label>
             <div class="pred-detail">
-              <span>信心: {{ (item.confidence * 100).toFixed(0) }}%</span>
-              <span v-if="item.entry_price">入场: {{ item.entry_price?.toFixed(2) }}</span>
-              <span v-if="item.exit_price">出场: {{ item.exit_price?.toFixed(2) }}</span>
+              <span>置信度: {{ (item.confidence * 100).toFixed(0) }}%</span>
+              <span v-if="item.entry_price">入场: ${{ item.entry_price?.toFixed(2) }}</span>
+              <span v-if="item.exit_price">出场: ${{ item.exit_price?.toFixed(2) }}</span>
+            </div>
+            <div class="reasoning" v-if="item.reasoning">
+              理由: {{ item.reasoning }}
             </div>
           </template>
           <template #value>
-            <van-tag :type="getResultTag(item).type" plain>{{ getResultTag(item).text }}</van-tag>
+            <van-tag :type="getResultTag(item).type" plain size="medium">{{ getResultTag(item).text }}</van-tag>
           </template>
         </van-cell>
       </van-list>
+
+      <div v-if="!listLoading && !predictionStore.history.length" class="empty-wrap">
+        <van-empty description="暂无历史预测记录，可到「行情」页点击「立即预测」生成第一笔数据" image="search" />
+      </div>
     </van-pull-refresh>
   </div>
 </template>
@@ -101,19 +123,39 @@ const getResultTag = (item: any) => {
 .predictions-page {
   min-height: 100vh;
   background: #0f0f1a;
+  padding-bottom: 70px;
+}
+.filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .pred-cell {
   background: #1a1a2e !important;
   border-bottom: 1px solid #2a2a3e;
+  padding: 12px 14px;
 }
 .pred-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .time {
   font-size: 12px;
   color: #8f9ca2;
+  font-family: monospace;
+}
+.model-badge {
+  font-size: 11px;
+  background: #1e2a3a;
+  color: #c0c0c0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .prediction {
   font-weight: bold;
@@ -124,10 +166,24 @@ const getResultTag = (item: any) => {
 }
 .pred-detail {
   display: flex;
-  gap: 12px;
+  gap: 10px;
+  font-size: 11px;
+  color: #8f9ca2;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+.reasoning {
   font-size: 11px;
   color: #8f9ca2;
   margin-top: 4px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+.empty-wrap {
+  margin: 40px 10px;
+  background: #1a1a2e;
+  border-radius: 10px;
+  padding: 20px 0;
 }
 :deep(.van-dropdown-menu__bar) {
   background: #1a1a2e;
@@ -140,5 +196,12 @@ const getResultTag = (item: any) => {
 }
 :deep(.van-list__finished-text) {
   color: #8f9ca2;
+  padding: 16px 0;
+}
+:deep(.van-empty__description) {
+  color: #8f9ca2;
+  font-size: 13px;
+  padding: 0 20px;
+  text-align: center;
 }
 </style>
