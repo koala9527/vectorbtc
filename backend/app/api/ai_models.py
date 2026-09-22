@@ -87,6 +87,18 @@ async def delete_model(model_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
     return {"status": "deleted", "message": "Model and its associated records shielded"}
 
+@router.post("/{model_id}/toggle", response_model=AIModelSchema)
+async def toggle_model(model_id: int, db: AsyncSession = Depends(get_db)):
+    model = await db.get(AIModel, model_id)
+    if not model or model.is_deleted:
+        raise HTTPException(status_code=404, detail="Model not found")
+    model.is_active = not model.is_active
+    await db.commit()
+    await db.refresh(model)
+    d = {c.name: getattr(model, c.name) for c in model.__table__.columns}
+    d["api_key_masked"] = mask_api_key(decrypt_api_key(model.api_key_encrypted))
+    return AIModelSchema(**d)
+
 @router.post("/{model_id}/test")
 async def test_model(model_id: int, db: AsyncSession = Depends(get_db)):
     model = await db.get(AIModel, model_id)

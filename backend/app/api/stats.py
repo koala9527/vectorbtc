@@ -10,7 +10,11 @@ router = APIRouter(prefix="/stats", tags=["Statistics"])
 
 @router.get("/overview")
 async def get_overview(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(AIModel).where(AIModel.is_deleted == False))
+    result = await db.execute(
+        select(AIModel)
+        .where(AIModel.is_deleted == False)
+        .where(AIModel.is_active == True)
+    )
     models = result.scalars().all()
     
     total = sum(m.total_predictions for m in models)
@@ -31,7 +35,11 @@ async def get_overview(db: AsyncSession = Depends(get_db)):
 
 @router.get("/by-model")
 async def get_by_model(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(AIModel).where(AIModel.is_deleted == False))
+    result = await db.execute(
+        select(AIModel)
+        .where(AIModel.is_deleted == False)
+        .where(AIModel.is_active == True)
+    )
     models = result.scalars().all()
     stats = []
     for m in models:
@@ -52,13 +60,14 @@ async def get_by_model(db: AsyncSession = Depends(get_db)):
 
 @router.get("/history")
 async def get_history(days: int = Query(default=7, ge=1, le=90), db: AsyncSession = Depends(get_db)):
-    """Get daily win rate trend for the last N days for non-deleted models."""
+    """Get daily win rate trend for the last N days for active, non-deleted models."""
     since = datetime.utcnow() - timedelta(days=days)
     
     stmt = (
         select(Prediction)
         .join(AIModel, Prediction.ai_model_id == AIModel.id)
         .where(AIModel.is_deleted == False)
+        .where(AIModel.is_active == True)
         .where(Prediction.settled == True)
         .where(Prediction.prediction != "SKIP")
         .where(Prediction.settled_at >= since)

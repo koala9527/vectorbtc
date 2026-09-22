@@ -82,7 +82,7 @@ class SchedulerService:
                     ticker_24hr = {}
                 
                 # 6. Get active AI models
-                stmt = select(AIModel).where(AIModel.is_active == True)
+                stmt = select(AIModel).where(AIModel.is_active == True, AIModel.is_deleted == False)
                 result = await session.execute(stmt)
                 active_models = result.scalars().all()
                 

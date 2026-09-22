@@ -18,6 +18,7 @@ const form = ref({
   model_name: '',
   temperature: 0.3,
   system_prompt: '',
+  is_active: true,
 });
 
 // Test Result Modal State
@@ -49,6 +50,7 @@ const openAdd = () => {
     model_name: 'deepseek-chat',
     temperature: 0.3,
     system_prompt: '',
+    is_active: true,
   };
   showForm.value = true;
 };
@@ -58,9 +60,26 @@ const openEdit = (model: any) => {
   formTitle.value = '编辑 AI 模型配置';
   form.value = {
     ...model,
+    is_active: model.is_active !== undefined ? model.is_active : true,
     api_key: '', // Leave blank if not modifying
   };
   showForm.value = true;
+};
+
+const onToggleActive = async (model: any) => {
+  try {
+    const updated: any = await aiModelsApi.toggle(model.id);
+    model.is_active = updated.is_active;
+    showToast({
+      type: 'success',
+      message: updated.is_active
+        ? `模型「${model.name}」已启用`
+        : `模型「${model.name}」已停用，其数据已在行情、预测和统计中隐藏`,
+    });
+    settingsStore.fetchModels();
+  } catch (e) {
+    // Handled by interceptor
+  }
 };
 
 const onSubmit = async () => {
@@ -152,6 +171,7 @@ const onTest = async (id: number) => {
         @edit="openEdit"
         @delete="onDelete"
         @test="onTest"
+        @toggle="onToggleActive"
       />
     </div>
     <div v-else class="empty-wrap">
@@ -218,6 +238,15 @@ const onTest = async (id: number) => {
             type="textarea"
             placeholder="留空则使用默认高阶 M5 币安量化多空推演提示词"
           />
+
+          <van-field name="is_active" label="启用状态">
+            <template #input>
+              <van-switch v-model="form.is_active" size="20px" active-color="#00c853" inactive-color="#3a3a4e" />
+              <span style="margin-left: 10px; font-size: 13px; color: #8f9ca2;">
+                {{ form.is_active ? '启用推演与展示' : '停用（隐藏数据与停止推演）' }}
+              </span>
+            </template>
+          </van-field>
         </van-cell-group>
         
         <div class="submit-btn-wrap">

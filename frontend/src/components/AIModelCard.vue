@@ -5,7 +5,7 @@ const props = defineProps<{
   model: any;
 }>();
 
-defineEmits(['edit', 'test', 'delete']);
+defineEmits(['edit', 'test', 'delete', 'toggle']);
 
 const winRate = computed(() => {
   const total = props.model.total_predictions || 0;
@@ -16,7 +16,7 @@ const winRate = computed(() => {
 </script>
 
 <template>
-  <div class="ai-model-card">
+  <div class="ai-model-card" :class="{ 'is-disabled': !model.is_active }">
     <div class="card-top">
       <div class="model-info">
         <div class="model-name">
@@ -27,10 +27,27 @@ const winRate = computed(() => {
         </div>
         <div class="model-sub">{{ model.model_name }} · {{ model.provider || 'Custom API' }}</div>
       </div>
-      <div class="rate-badge">
-        <div class="rate-val">{{ winRate }}</div>
-        <div class="rate-label">胜率</div>
+      <div class="top-right-wrap">
+        <div class="switch-box" @click.stop>
+          <span class="switch-label">{{ model.is_active ? '已启用' : '已停用' }}</span>
+          <van-switch
+            :model-value="model.is_active"
+            size="18px"
+            active-color="#00c853"
+            inactive-color="#3a3a4e"
+            @change="$emit('toggle', model)"
+          />
+        </div>
+        <div class="rate-badge">
+          <div class="rate-val">{{ winRate }}</div>
+          <div class="rate-label">胜率</div>
+        </div>
       </div>
+    </div>
+
+    <div v-if="!model.is_active" class="disabled-tip-banner">
+      <van-icon name="info-o" size="13" />
+      <span>已停用：该模型数据已在行情、预测和统计大盘中隐藏</span>
     </div>
 
     <div class="card-details">
@@ -50,6 +67,15 @@ const winRate = computed(() => {
     </div>
 
     <div class="card-actions">
+      <van-button
+        size="small"
+        :type="model.is_active ? 'warning' : 'success'"
+        plain
+        :icon="model.is_active ? 'pause-circle-o' : 'play-circle-o'"
+        @click="$emit('toggle', model)"
+      >
+        {{ model.is_active ? '停用' : '启用' }}
+      </van-button>
       <van-button size="small" type="primary" plain icon="play-circle-o" @click="$emit('test', model.id)">测试连接</van-button>
       <van-button size="small" type="default" plain icon="edit" @click="$emit('edit', model)">编辑</van-button>
       <van-button size="small" type="danger" plain icon="delete-o" @click="$emit('delete', model.id)">删除</van-button>
@@ -64,11 +90,48 @@ const winRate = computed(() => {
   border: 1px solid #2a2a3e;
   margin-bottom: 12px;
   padding: 14px;
+  transition: all 0.3s ease;
+}
+.ai-model-card.is-disabled {
+  opacity: 0.65;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #141424;
 }
 .card-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  margin-bottom: 10px;
+}
+.top-right-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.switch-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.switch-label {
+  font-size: 10px;
+  color: #7d889b;
+}
+.disabled-tip-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 179, 0, 0.1);
+  border: 1px solid rgba(255, 179, 0, 0.25);
+  color: #ffb300;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 6px;
   margin-bottom: 10px;
 }
 .model-info {

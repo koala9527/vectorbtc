@@ -41,7 +41,9 @@ const onModelChange = () => {
 
 onMounted(async () => {
   await settingsStore.fetchModels();
-  const opts = settingsStore.aiModels.map((m: any) => ({ text: m.name, value: m.id }));
+  const opts = settingsStore.aiModels
+    .filter((m: any) => m.is_active)
+    .map((m: any) => ({ text: m.name, value: m.id }));
   modelOptions.value = [{ text: '全部模型', value: 0 }, ...opts];
 });
 

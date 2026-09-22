@@ -30,6 +30,7 @@ export const aiModelsApi = {
   getAll: () => api.get('/ai-models'),
   create: (data: any) => api.post('/ai-models', data),
   update: (id: number, data: any) => api.put(`/ai-models/${id}`, data),
+  toggle: (id: number) => api.post(`/ai-models/${id}/toggle`),
   remove: (id: number) => api.delete(`/ai-models/${id}`),
   test: (id: number) => api.post(`/ai-models/${id}/test`),
 };
