@@ -1,0 +1,31 @@
+{
+  "name": "vectorbtc-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "dayjs": "^1.11.0",
+    "echarts": "^5.5.0",
+    "lightweight-charts": "^4.2.0",
+    "pinia": "^2.2.0",
+    "vant": "^4.9.0",
+    "vue": "^3.5.0",
+    "vue-echarts": "^7.0.0",
+    "vue-router": "^4.4.0"
+  },
+  "devDependencies": {
+    "@vant/auto-import-resolver": "^1.2.0",
+    "@vitejs/plugin-vue": "^5.1.0",
+    "typescript": "^5.5.0",
+    "unplugin-auto-import": "^0.18.0",
+    "unplugin-vue-components": "^0.27.0",
+    "vite": "^5.4.0",
+    "vue-tsc": "^2.1.0"
+  }
+}

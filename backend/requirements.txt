@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+aiosqlite
+apscheduler
+pandas
+numpy
+httpx
+python-dotenv
+pydantic-settings
+cryptography
