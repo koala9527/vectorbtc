@@ -1,0 +1,33 @@
+# VectorBTC Docker Compose Orchestration
+# SQLite 持久化路径：挂载 ./data 至容器内 /app/data
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-vectorbtc-backend:latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "${BACKEND_PORT:-8009}:8000"
+    restart: unless-stopped
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-vectorbtc-frontend:latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8029}:80"
+    restart: unless-stopped
+
+# 显式定义子网，避免共享宿主机（如 n5105）上与其他容器项目网段冲突
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${COMPOSE_SUBNET:-10.253.241.0/28}

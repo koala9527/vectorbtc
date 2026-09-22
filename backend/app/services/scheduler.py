@@ -31,7 +31,7 @@ class SchedulerService:
             coalesce=True,
         )
         self.scheduler.start()
-        logger.info(f"Scheduler started — aligned to 5-minute candle close marks (minute='*/5', second='3')")
+        logger.info("Scheduler started — aligned to 5-minute candle close marks (minute='*/5', second='3')")
 
     def stop(self):
         self.scheduler.shutdown()

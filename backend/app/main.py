@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from app.services.scheduler import scheduler_service
-import asyncio
 from contextlib import asynccontextmanager
 
 from app.api import market, predictions, ai_models, stats, settings, ws

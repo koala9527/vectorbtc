@@ -50,7 +50,7 @@ class AIPredictorService:
             
             # Build rich market context
             prompt_parts = [
-                f"【BTC/USDT 5分钟(M5)周期量化决策输入】",
+                "【BTC/USDT 5分钟(M5)周期量化决策输入】",
                 f"当前最新现价: ${market_data.get('price', 'N/A')}",
                 f"24小时涨跌幅: {market_data.get('price_change_pct', 'N/A')}%",
                 f"24小时成交量: {market_data.get('volume_24h', 'N/A')} USDT",
