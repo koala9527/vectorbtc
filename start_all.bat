@@ -6,12 +6,12 @@ echo ===================================================
 echo             VectorBTC System Launcher
 echo ===================================================
 echo [1/2] Starting Backend service...
-start "VectorBTC_Backend" cmd.exe /k "call \"%~dp0start_backend.bat\""
+start "VectorBTC_Backend" "%~dp0start_backend.bat"
 
-timeout /t 2 >nul
+ping 127.0.0.1 -n 3 >nul
 
 echo [2/2] Starting Frontend service...
-start "VectorBTC_Frontend" cmd.exe /k "call \"%~dp0start_frontend.bat\""
+start "VectorBTC_Frontend" "%~dp0start_frontend.bat"
 
 echo.
 echo ===================================================
