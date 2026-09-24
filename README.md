@@ -7,6 +7,7 @@
 *5-Minute High-Frequency BTC Quantitative UP/DOWN Prediction & Multi-AI Model Arena*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
+[![Jev System 1: Ready](https://img.shields.io/badge/Jev%20System%201-Ready-ff69b4.svg?logo=lightning&logoColor=white)](https://openrouter.ai/models/typesafe/jev-latest)
 [![Python: 3.12](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Vue 3](https://img.shields.io/badge/Vue-3.5-4FC08D.svg?logo=vue.js&logoColor=white)](https://vuejs.org/)
@@ -24,7 +25,9 @@
 
 **VectorBTC** 是一套专为加密货币（BTC/USDT）设计的 **5 分钟（M5）级高频涨跌预测与多 AI 模型实战对决系统**。
 
-系统以 5 分钟 K 线周期为最小节拍，实时拉取币安公开行情并秒级计算 **MACD、RSI、布林带、EMA7/25、SMA99** 等技术量化指标，作为严格的结构化决策依据，同时驱动多个 AI 大模型（如 DeepSeek-V3/R1、GPT-4o、Claude、通义千问、本地 Ollama 等）进行下一周期的多空（UP/DOWN/SKIP）推演。
+系统以 5 分钟 K 线周期为最小节拍，实时拉取币安公开行情并秒级计算 **MACD、RSI、布林带、EMA7/25、SMA99** 等技术量化指标，作为严格的结构化决策依据，同时驱动多个 AI 模型进行下一周期的多空（UP/DOWN/SKIP）推演：
+- ⚡ **System 1 (快决策 / 盘口直觉)**：率先支持由前 OpenAI 团队 TypeSafe AI 研发的 **Jev** 决策模型（70ms 极低延迟，非自回归结构化概率输出，成本降低 400x）；
+- 🧠 **System 2 (慢思考 / 深度推理)**：无缝支持 **DeepSeek-R1 / V3**、**GPT-4o**、**Claude 3.5 Sonnet**、**通义千问** 与本地私有化 **Ollama** 等深度思维链大模型。
 
 每个周期收盘时，系统自动核对实际结算价格，评定 AI 推演胜负，沉淀实盘数据，并通过全网胜率矩阵与排行榜直观呈现谁才是真正的“量化之王”。
 
@@ -43,6 +46,10 @@
 - ⏱️ **5分钟极速量化闭环**
   - 行情头图动态展示「5M 周期」状态灯，主界面清晰指示当前正在推演的区间（如 `17:15 ~ 17:20`）。
   - 内置精确到秒级的收盘结算倒计时与 5M 蜡烛走势动态进度条。
+- ⚡ **前沿 System 1 (Jev) 与 System 2 (DeepSeek/GPT) 双系统对决**
+  - **Jev (TypeSafe AI) 毫秒直觉**：前 OpenAI 研究员推出的决策大模型，专精非生成式结构化决策（`Choice` 原语），70ms 极低延迟，零 Token 废话与幻觉，推理成本直降 400x。
+  - **DeepSeek-R1 / GPT-4o 深度思维链**：华尔街量化师 Prompt 约束，深度剖析指标支撑阻力与多周期共振。
+  - 打造业内首个「毫秒级盘口本能哨兵」与「慢思考战术军师」同台竞技的实盘量化竞技场！
 - 🤖 **多 AI 模型实战竞技场（Model Arena）**
   - 允许同时接入多个大模型（支持任意 OpenAI 兼容 API：DeepSeek、OpenAI、Claude、OneAPI、Ollama 等）。
   - API Key 采用 Fernet 工业级对称加密存储，界面展示自动脱敏。
@@ -73,13 +80,13 @@ graph TD
     B --> C[技术指标计算器: MACD / RSI / BOLL / EMA / SMA]
     C --> D[5分钟调度器: APScheduler]
     
-    subgraph AI 推演竞技场
-        D --> M1[AI 模型 1: DeepSeek-V3]
-        D --> M2[AI 模型 2: GPT-4o]
-        D --> M3[AI 模型 3: 本地 Ollama / 其他]
+    subgraph AI 推演竞技场: System 1 与 System 2 并发对决
+        D -->|毫秒直觉决策 70ms| S1["⚡ System 1: Jev (TypeSafe AI)<br/>Choice 原语 / 纯结构化概率"]
+        D -->|深度逻辑推理链| S2["🧠 System 2: DeepSeek-R1 / GPT-4o<br/>慢思考量化指标多维归因"]
+        D -->|私有化边缘量化| S3["💻 本地 Ollama / Qwen2.5<br/>离线轻量化推演"]
     end
 
-    M1 & M2 & M3 --> E[结构化决策: UP / DOWN / SKIP]
+    S1 & S2 & S3 --> E[统一结构化决策契约: UP / DOWN / SKIP]
     E --> F[加密存储 SQLite DB]
     
     B --> G[周期收盘自动结算引擎]
@@ -186,13 +193,57 @@ Windows 用户可直接在根目录下双击运行：
 
 | 平台 / 模型 | Base URL | Model Name | 备注 |
 | :--- | :--- | :--- | :--- |
-| **DeepSeek V3 / R1** | `https://api.deepseek.com/v1` | `deepseek-chat` / `deepseek-reasoner` | 高性价比，强逻辑推演 |
-| **OpenAI** | `https://api.openai.com/v1` | `gpt-4o` / `gpt-4o-mini` | 经典基准模型 |
+| **TypeSafe Jev (System 1)** ⚡ | `https://openrouter.ai/api/v1` | `typesafe/jev-latest` | **前 OpenAI 团队打造的快决策模型**。非自回归，70ms 极低延迟，零 Token 废话，成本降低 400x，输出确定性概率分布 |
+| **DeepSeek V3 / R1 (System 2)** | `https://api.deepseek.com/v1` | `deepseek-chat` / `deepseek-reasoner` | 高性价比，强逻辑思维链深度推演 |
+| **OpenAI** | `https://api.openai.com/v1` | `gpt-4o` / `gpt-4o-mini` | 经典通用基准模型 |
 | **通义千问 (Qwen)** | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` / `qwen-turbo` | 阿里云兼容接口 |
 | **月之暗面 (Kimi)** | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` | 长文本上下文 |
 | **本地 Ollama** | `http://host.docker.internal:11434/v1` | `qwen2.5:7b` / `llama3.1` | 完全离线私有化运行 |
 
 > 💡 **提示**：每张模型卡片支持 **「测试连接」**，点击后系统将立即以当前最新行情与技术指标执行一次真实的 M5 模拟推演，并在弹窗中输出毫秒级响应延迟与决策依据。
+
+---
+
+## ⚡ 聚焦前沿：Jev (TypeSafe AI) System 1 决策模型深度实践
+
+2026 年 9 月，由前 OpenAI 研究员 Diogo Almeida 创立的 **TypeSafe AI** 正式发布了颠覆性的 **Jev** 模型（`typesafe/jev-latest`）。这一发布在 AI 与金融科技界引发了广泛震动——它宣告了 AI 从单纯“文本聊天与代码补全”迈入了**专精结构化概率决策的“System 1 快思考”新纪元**。
+
+VectorBTC 率先将 Jev 融入加密资产的 5 分钟高频推演体系中，实现量化投资领域的 **卡尼曼双系统模型（Kahneman Dual-Process Quantitative Theory）**：
+
+### 1. 为什么 5 分钟高频量化需要 Jev？
+
+传统生成式大语言模型（LLM）擅长在充足时间内展开长上下文深度推理（System 2 慢思考），但在高频交易场景面临三大天然制约：
+1. **生成延迟长**：逐 Token 自回归生成，端到端延迟通常在 2~6 秒，难以应对行情瞬息万变；
+2. **格式幻觉风险**：偶发的 Markdown 代码块截断或 JSON 解析失败会导致高频策略漏单；
+3. **调用成本累积**：高频推演（每日 288 个周期 × 多模型并发）消耗巨额 Token。
+
+**Jev 带来的颠覆性解决方式：**
+- **非自回归（Non-Autoregressive）结构化输出**：直接输出机器可读的结构化概率决策，完全剥离无用的自然语言修辞废话；
+- **极致亚秒响应（70ms ~ 500ms）**：决策速度比通用大模型快上百倍，宛如为量化系统装上了“毫秒级神经反射弧”；
+- **推理成本直降 400x**：百万 Token 成本仅约 $0.042，实现全天候无压力高并发巡航推演；
+- **原生零幻觉**：输出严格受控于选择集（Choice），保证 100% 格式安全。
+
+### 2. 双系统在 VectorBTC 中的实战分工
+
+| 特性对比 | ⚡ System 1: Jev 决策模型 | 🧠 System 2: DeepSeek-R1 / GPT-4o |
+| :--- | :--- | :--- |
+| **理论隐喻** | **快思考：盘口瞬时直觉反应** | **慢思考：华尔街分析师深度归因** |
+| **核心机制** | 概率分类原语 `Choice(UP, DOWN, SKIP)` | 复杂思维链（Chain-of-Thought）逐步求证 |
+| **典型延迟** | **70ms ~ 200ms** | 1,500ms ~ 5,000ms+ |
+| **输出物** | 方向判定 + 各分支严格置信度百分比 | 详细的指标分析论述、阻力支撑复盘文本 |
+| **实战策略** | **高频盘口尖刀兵**（捕捉瞬态破位与极端超买超卖） | **战略推演军师**（多周期共振与宏观技术形态确认） |
+
+### 3. 如何在 VectorBTC 中体验 Jev 的极速推演？
+
+Jev 已通过 OpenRouter 全面开放标准 OpenAI 兼容接口，你可以在 1 分钟内完成接入：
+1. 在 [OpenRouter](https://openrouter.ai/) 获取你的 API Key；
+2. 打开 VectorBTC 前端「设置」-> 点击「添加模型」；
+3. 填入以下参数：
+   - **模型标识/名称**：`Jev (System 1 Instant)`
+   - **Base URL**：`https://openrouter.ai/api/v1`
+   - **Model Name**：`typesafe/jev-latest`
+   - **API Key**：`sk-or-v1-xxxxxxxx...`
+4. 点击「测试连接」，你将亲身感受 **< 200ms** 的飞速回传与精准概率！
 
 ---
 
